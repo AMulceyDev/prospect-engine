@@ -22,16 +22,16 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        working-directory: backend
+        working-directory: api
         run: uv sync
 
       - name: Lint (optional but recommended)
-        working-directory: backend
+        working-directory: api
         run: |
           uv run ruff check .
 
       - name: Run tests
-        working-directory: backend
+        working-directory: api
         run: |
           uv run pytest -q || echo "no tests yet"
 
@@ -44,4 +44,4 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t prospect-backend ./backend
+          docker build -t prospect-api ./api
