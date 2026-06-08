@@ -1,0 +1,50 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+.venv/
+venv/
+.env/
+.env.*
+
+# uv
+uv.lock
+.python-version
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy / ruff
+.mypy_cache/
+.ruff_cache/
+
+# FastAPI / runtime
+*.log
+
+# Uvicorn / server artifacts
+server.pid
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+
+# Project specific
+cache/
+tmp/
+data/
+
+# exports CSV éventuels
+*.csv
+*.json
