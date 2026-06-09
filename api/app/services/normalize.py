@@ -34,7 +34,7 @@ def normalize_insee(etab: dict) -> CompanyData | None:
     u = etab.get("uniteLegale", {}) or {}
     a = etab.get("adresseEtablissement", {}) or {}
 
-    name = u.get("denominationUniteLegale") or u.get("nomUniteLegale")
+    name = _nd(u.get("denominationUniteLegale") or u.get("nomUniteLegale"))
     name = name.strip() if name else None
 
     statut = u.get("statutDiffusionUniteLegale")
@@ -45,8 +45,8 @@ def normalize_insee(etab: dict) -> CompanyData | None:
         denomination=name,
         code_ape=u.get("activitePrincipaleUniteLegale"),
         date_creation=u.get("dateCreationUniteLegale"),
-        commune=a.get("libelleCommuneEtablissement"),
-        code_postal=a.get("codePostalEtablissement"),
+        commune=_nd(a.get("libelleCommuneEtablissement")),
+        code_postal=_nd(a.get("codePostalEtablissement")),
         code_insee_commune=a.get("codeCommuneEtablissement"),
         diffusion_insee=diffusion_insee,
     )
@@ -113,3 +113,9 @@ def normalize_rne(payload: dict) -> CompanyData:
         noms_de_domaine=domaines,
         dirigeants=dirigeants,
     )
+
+def _nd(value: str | None) -> str | None:
+    if value is None:
+        return None
+    v = value.strip()
+    return None if v in ("[ND]", "") else v

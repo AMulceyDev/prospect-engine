@@ -9,6 +9,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: prospect_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prospect_test
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -16,7 +34,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install uv
         run: pip install uv
@@ -25,23 +43,23 @@ jobs:
         working-directory: api
         run: uv sync
 
-      - name: Lint (optional but recommended)
+      - name: Lint
         working-directory: api
-        run: |
-          uv run ruff check .
+        run: uv run ruff check .
+
+      - name: Run migrations
+        working-directory: api
+        run: uv run alembic upgrade head
 
       - name: Run tests
         working-directory: api
-        run: |
-          uv run pytest -q || echo "no tests yet"
+        run: uv run pytest -q
 
   docker:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: |
-          docker build -t prospect-api ./api
+        run: docker build -t prospect-api ./api
