@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d prospect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -19,10 +24,12 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app
+      - /app/.venv
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/prospect
+      DATABASE_URL: postgresql://postgres:postgres@database:5432/prospect
     depends_on:
-      - database
+      database:
+        condition: service_healthy
 
 volumes:
   pgdata:
