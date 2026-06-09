@@ -1,18 +1,22 @@
 FROM python:3.12-slim
 
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 WORKDIR /app
 
-# installer uv
-RUN pip install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# copier dépendances
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml uv.lock* /app/
+RUN uv sync --frozen --no-install-project
 
-# installer deps via uv
-RUN uv sync
-
-# copier code
 COPY . /app
+
+RUN uv sync --frozen
 
 EXPOSE 8000
 
