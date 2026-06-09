@@ -10,6 +10,7 @@ from app.schemas.company import (
     CompanyRead,
     EnrichResult,
     IngestResult,
+    WebsiteDetectResult,
 )
 from app.services.ingestion import (
     enrich_pending_from_rne,
@@ -17,6 +18,7 @@ from app.services.ingestion import (
 )
 from app.services.inpi import InpiClient
 from app.services.insee import InseeClient
+from app.services.website_detect import detect_pending_websites
 
 router = APIRouter()
 
@@ -54,6 +56,11 @@ def run_enrichment(
     return EnrichResult(**result)
 
 
+@router.post("/ingest/websites", response_model=WebsiteDetectResult)
+def run_website_detection(limit: int = 50, db: Session = Depends(get_db)):
+    return detect_pending_websites(limit=limit, db=db)
+
+
 @router.get("/companies", response_model=list[CompanyRead])
 def list_companies(
     skip: int = 0,
@@ -78,7 +85,7 @@ def get_company(siren: str, db: Session = Depends(get_db)):
     stmt = (
         select(Company)
         .where(Company.siren == siren)
-        .options(selectinload(Company.dirigeants))
+        .options(selectinload(Company.dirigeants), selectinload(Company.websites))
     )
     company = db.scalar(stmt)
     if company is None:

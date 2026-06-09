@@ -33,8 +33,22 @@ class CompanyRead(BaseModel):
     updated_at: datetime
 
 
+class WebsiteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    url: str
+    domain: str
+    source: str
+    dns_resolved: bool
+    http_status: int | None
+    is_https: bool | None
+    confidence: int
+    is_selected: bool
+
+
 class CompanyDetail(CompanyRead):
     dirigeants: list[DirigeantRead]
+    websites: list[WebsiteRead]
 
 
 class IngestResult(BaseModel):
@@ -46,3 +60,8 @@ class IngestResult(BaseModel):
 class EnrichResult(BaseModel):
     enriched: int
     candidates: int
+
+
+class WebsiteDetectResult(BaseModel):
+    processed: int
+    candidates_probed: int

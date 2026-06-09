@@ -47,6 +47,9 @@ class Company(Base):
     dirigeants: Mapped[list["Dirigeant"]] = relationship(
         back_populates="company", cascade="all, delete-orphan"
     )
+    websites: Mapped[list["Website"]] = relationship(
+        back_populates="company", cascade="all, delete-orphan"
+    )
 
 
 class Dirigeant(Base):
@@ -66,6 +69,37 @@ class Dirigeant(Base):
     synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     company: Mapped["Company"] = relationship(back_populates="dirigeants")
+
+
+class Website(Base):
+    __tablename__ = "websites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+
+    url: Mapped[str] = mapped_column(String, nullable=False)
+    domain: Mapped[str] = mapped_column(String, nullable=False)
+    pattern: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False)  # "rne" | "generated"
+
+    dns_resolved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    final_url: Mapped[str | None] = mapped_column(String)
+    is_https: Mapped[bool | None] = mapped_column(Boolean)
+    response_time_ms: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(String)
+
+    confidence: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_selected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    company: Mapped["Company"] = relationship(back_populates="websites")
 
 
 class RawPayload(Base):
