@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Brand teal */
+  --color-pe-teal-50:  #e9f6f0;
+  --color-pe-teal-100: #cfe9e1;
+  --color-pe-teal-400: #3dd7b8;
+  --color-pe-teal-500: #12a594;
+  --color-pe-teal-600: #0e9384;
+  --color-pe-teal-700: #0b7a6e;
+
+  /* Gray scale (design system) */
+  --color-pe-gray-50:  #f5f6f7;
+  --color-pe-gray-75:  #fafbfb;
+  --color-pe-gray-100: #f0f1f2;
+  --color-pe-gray-150: #eceeef;
+  --color-pe-gray-200: #e6e8e8;
+  --color-pe-gray-300: #e0e3e3;
+  --color-pe-gray-400: #d4d8d8;
+  --color-pe-gray-500: #c4caca;
+  --color-pe-gray-600: #a4abab;
+  --color-pe-gray-700: #8a9090;
+  --color-pe-gray-800: #5c6363;
+  --color-pe-gray-850: #3a4040;
+  --color-pe-gray-900: #1a1d1d;
+
+  /* Opportunity: high */
+  --color-pe-orange-text:   #b8410e;
+  --color-pe-orange-dot:    #e8590c;
+  --color-pe-orange-bg:     #fdeee6;
+  --color-pe-orange-border: #f6d4c2;
+
+  /* Opportunity: mid */
+  --color-pe-amber-text:   #9a6b00;
+  --color-pe-amber-dot:    #e0a400;
+  --color-pe-amber-bg:     #fdf6e3;
+  --color-pe-amber-border: #f0e4b8;
+
+  /* Animations */
+  --animate-pe-spin: pe-spin .7s linear infinite;
+  --animate-pe-fade: pe-fade .25s ease;
+
+  @keyframes pe-spin { to { transform: rotate(360deg); } }
+  @keyframes pe-fade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #f5f6f7;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    color: #1a1d1d;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #app { all: unset; display: block; }
+
+  button { font-family: inherit; cursor: pointer; }
+  input, select { font-family: inherit; }
+  ::selection { background: #bfe9e0; }
+}
+
+@layer utilities {
+  /* Custom grid template for the prospect table */
+  .prospect-grid {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 2.5fr) 1.15fr 0.7fr 1.3fr 1.4fr 30px;
+    align-items: center;
+    gap: 14px;
+  }
+}

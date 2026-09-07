@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 
@@ -39,13 +41,13 @@ class InpiClient:
             timeout=self.timeout,
         )
         if resp.status_code in (401, 403):
-            raise RNEAuthError("Identifiants INPI refusés.")
+            raise RNEAuthError("Invalid INPI credentials.")
         resp.raise_for_status()
         token = resp.json().get("token")
         if not token:
-            raise RNEAuthError("Réponse de login sans token.")
+            raise RNEAuthError("Login response missing token.")
         self._token = token
-        logger.info("Token RNE obtenu.")
+        logger.info("RNE token obtained.")
         return token
 
     def _auth_header(self) -> dict[str, str]:
@@ -54,12 +56,23 @@ class InpiClient:
 
     def _request(self, method: str, path: str, allow_404: bool = False, **kwargs):
         retried_auth = False
+        extra_headers = kwargs.pop("headers", {})
         for attempt in range(self.max_retries + 1):
-            headers = {**kwargs.pop("headers", {}), **self._auth_header()}
-            resp = self._session.request(
-                method, f"{self.base_url}{path}", headers=headers,
-                timeout=self.timeout, **kwargs,
-            )
+            headers = {**extra_headers, **self._auth_header()}
+            try:
+                resp = self._session.request(
+                    method, f"{self.base_url}{path}", headers=headers,
+                    timeout=self.timeout, **kwargs,
+                )
+            except requests.exceptions.ConnectionError as exc:
+                if attempt >= self.max_retries:
+                    raise
+                logger.warning("INPI connection lost (attempt %d/%d): %s", attempt + 1, self.max_retries, exc)
+                self._session = requests.Session()
+                self._session.headers.update({"Accept": "application/json"})
+                self._token = None
+                time.sleep(2 ** attempt)
+                continue
             if resp.status_code == 401 and not retried_auth:
                 self._token = None
                 retried_auth = True
@@ -68,7 +81,7 @@ class InpiClient:
                 return None
             if resp.status_code == 429:
                 if attempt >= self.max_retries:
-                    raise RNEQuotaExceeded("Quota journalier RNE dépassé.")
+                    raise RNEQuotaExceeded("Daily RNE quota exceeded.")
                 time.sleep(2 ** attempt)
                 continue
             if resp.status_code >= 500:
@@ -78,10 +91,11 @@ class InpiClient:
                 continue
             resp.raise_for_status()
             return resp
-        raise RNEError("Tentatives épuisées.")
+        raise RNEError("All retries exhausted.")
 
     def get_company(self, siren: str) -> dict | None:
         resp = self._request("GET", f"/api/companies/{siren}", allow_404=True)
         if resp is None:
             return None
         return resp.json()
+

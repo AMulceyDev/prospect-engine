@@ -34,7 +34,7 @@ def normalize_insee(etab: dict) -> CompanyData | None:
     u = etab.get("uniteLegale", {}) or {}
     a = etab.get("adresseEtablissement", {}) or {}
 
-    name = _nd(u.get("denominationUniteLegale") or u.get("nomUniteLegale"))
+    name = _clean(u.get("denominationUniteLegale") or u.get("nomUniteLegale"))
     name = name.strip() if name else None
 
     statut = u.get("statutDiffusionUniteLegale")
@@ -43,19 +43,21 @@ def normalize_insee(etab: dict) -> CompanyData | None:
     return CompanyData(
         siren=siren,
         denomination=name,
+        forme_juridique=u.get("categorieJuridiqueUniteLegale"),
         code_ape=u.get("activitePrincipaleUniteLegale"),
         date_creation=u.get("dateCreationUniteLegale"),
-        commune=_nd(a.get("libelleCommuneEtablissement")),
-        code_postal=_nd(a.get("codePostalEtablissement")),
+        commune=_clean(a.get("libelleCommuneEtablissement")),
+        code_postal=_clean(a.get("codePostalEtablissement")),
         code_insee_commune=a.get("codeCommuneEtablissement"),
         diffusion_insee=diffusion_insee,
     )
 
 def normalize_rne(payload: dict) -> CompanyData:
-    formality = payload.get("formality") or {}
-    siren = formality.get("siren") or payload.get("siren")
+    data = payload.get("company") or payload
+    formality = data.get("formality") or {}
+    siren = formality.get("siren") or data.get("siren")
 
-    diffusion_commerciale = bool(formality.get("diffusionCommerciale", True))
+    publicly_diffusable = bool(formality.get("diffusionCommerciale", True))
     diffusable_insee = formality.get("diffusionINSEE") != "N"
     type_personne = formality.get("typePersonne")
     forme_juridique = formality.get("formeJuridique")
@@ -68,40 +70,40 @@ def normalize_rne(payload: dict) -> CompanyData:
     identite_pm = pm.get("identite") or {}
     denomination = (identite_pm.get("entreprise") or {}).get("denomination")
 
-    domaines: list[str] = []
+    domains: list[str] = []
     for d in identite_pm.get("nomsDeDomaine") or []:
         if d.get("nomDomaine"):
-            domaines.append(d["nomDomaine"])
+            domains.append(d["nomDomaine"])
     for source in (pm, pp):
         for etab in source.get("autresEtablissements") or []:
             for d in etab.get("nomsDeDomaine") or []:
                 if d.get("nomDomaine"):
-                    domaines.append(d["nomDomaine"])
-    domaines = sorted(set(domaines))
+                    domains.append(d["nomDomaine"])
+    domains = sorted(set(domains))
 
-    dirigeants: list[DirigeantData] = []
+    executives: list[DirigeantData] = []
     composition = pm.get("composition") or {}
     for pouvoir in composition.get("pouvoirs") or []:
         individu = pouvoir.get("individu") or {}
         desc = individu.get("descriptionPersonne") or {}
         if desc.get("nom") or desc.get("prenoms"):
-            dirigeants.append(DirigeantData(
+            executives.append(DirigeantData(
                 nom=desc.get("nom"),
                 prenoms=desc.get("prenoms") or [],
                 role=pouvoir.get("roleEntreprise"),
                 beneficiaire_effectif=pouvoir.get("beneficiaireEffectif"),
-                diffusion_commerciale=diffusion_commerciale,
+                diffusion_commerciale=publicly_diffusable,
             ))
 
     entrepreneur = (pp.get("identite") or {}).get("entrepreneur") or {}
     desc_pp = entrepreneur.get("descriptionPersonne") or {}
     if desc_pp.get("nom") or desc_pp.get("prenoms"):
-        dirigeants.append(DirigeantData(
+        executives.append(DirigeantData(
             nom=desc_pp.get("nom"),
             prenoms=desc_pp.get("prenoms") or [],
             role="entrepreneur",
             beneficiaire_effectif=None,
-            diffusion_commerciale=diffusion_commerciale,
+            diffusion_commerciale=publicly_diffusable,
         ))
 
     return CompanyData(
@@ -110,11 +112,12 @@ def normalize_rne(payload: dict) -> CompanyData:
         type_personne=type_personne,
         forme_juridique=forme_juridique,
         diffusion_insee=diffusable_insee,
-        noms_de_domaine=domaines,
-        dirigeants=dirigeants,
+        noms_de_domaine=domains,
+        dirigeants=executives,
     )
 
-def _nd(value: str | None) -> str | None:
+def _clean(value: str | None) -> str | None:
+    """Strip whitespace and return None for INSEE non-diffusé sentinel '[ND]'."""
     if value is None:
         return None
     v = value.strip()
