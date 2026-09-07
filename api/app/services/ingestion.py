@@ -13,6 +13,8 @@ from app.services.normalize import CompanyData, normalize_insee, normalize_rne
 
 logger = logging.getLogger(__name__)
 
+_BATCH_SIZE = 200
+
 
 def ingest_from_insee(etablissements: list[dict], db: Session | None = None) -> dict:
     # db=None is supported so this function can be called outside a request context
@@ -29,7 +31,7 @@ def ingest_from_insee(etablissements: list[dict], db: Session | None = None) -> 
                 skipped += 1
                 continue
 
-            # Multiple établissements can share a siren; only upsert once per siren
+            # Multiple establishments can share a siren; only upsert once per siren
             if data.siren in seen:
                 continue
             seen.add(data.siren)
@@ -38,6 +40,7 @@ def ingest_from_insee(etablissements: list[dict], db: Session | None = None) -> 
             values = {
                 "siren": data.siren,
                 "denomination": data.denomination,
+                "forme_juridique": data.forme_juridique,
                 "code_ape": data.code_ape,
                 "date_creation": data.date_creation,
                 "commune": data.commune,
@@ -53,6 +56,7 @@ def ingest_from_insee(etablissements: list[dict], db: Session | None = None) -> 
                 index_elements=["siren"],
                 set_={
                     "denomination": stmt.excluded.denomination,
+                    "forme_juridique": stmt.excluded.forme_juridique,
                     "code_ape": stmt.excluded.code_ape,
                     "date_creation": stmt.excluded.date_creation,
                     "commune": stmt.excluded.commune,
@@ -86,12 +90,12 @@ def _apply_rne(company: Company, data: CompanyData, db: Session) -> None:
     if data.forme_juridique:
         company.forme_juridique = data.forme_juridique
     if data.noms_de_domaine:
-        company.noms_de_domaine = data.noms_de_domaine
+        company.noms_de_domaine = [{"domain": d, "source": "rne"} for d in data.noms_de_domaine]
     company.diffusion_insee = data.diffusion_insee
     company.source_rne = True
     company.rne_synced_at = now
 
-    # Replace dirigeants wholesale on each sync
+    # Replace executives wholesale on each sync
     db.execute(delete(Dirigeant).where(Dirigeant.company_id == company.id))
     for p in data.dirigeants:
         db.add(
@@ -107,6 +111,7 @@ def _apply_rne(company: Company, data: CompanyData, db: Session) -> None:
         )
 
 
+
 def enrich_from_rne(siren: str, client, db: Session | None = None) -> bool:
     own_session = db is None
     db = db or SessionLocal()
@@ -117,7 +122,7 @@ def enrich_from_rne(siren: str, client, db: Session | None = None) -> bool:
 
         payload = client.get_company(siren)
         if payload is None:
-            # Mark as attempted so we don't retry on every enrichment run
+            # Mark as synced even on 404 so we don't retry on every enrichment run
             company.source_rne = True
             company.rne_synced_at = datetime.now(UTC)
             db.commit()

@@ -1,4 +1,43 @@
 services:
+
+  # ── Frontend (Vue 3 + nginx) ────────────────────────────────────────────────
+  website:
+    build:
+      context: ./website
+    container_name: prospect-website
+    ports:
+      - "8090:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) ───────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+    container_name: prospect-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app          # live reload in dev
+      - /app/.venv          # keep container venv isolated from host mount
+    env_file:
+      - ./api/.env          # loads INSEE_API_KEY, INPI_USERNAME, INPI_PASSWORD, etc.
+    environment:
+      # These override api/.env for Docker-internal service addresses
+      DATABASE_URL: postgresql://postgres:postgres@database:5432/prospect
+      SEARXNG_URL: http://searxng:8080
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      CORS_ORIGINS: '["http://localhost", "http://localhost:80", "http://localhost:5173"]'
+    depends_on:
+      database:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Database (PostgreSQL 16) ────────────────────────────────────────────────
   database:
     image: postgres:16
     container_name: prospect-database
@@ -15,21 +54,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  api:
-    build:
-      context: ./api
-    container_name: prospect-api
+  # ── LLM (Ollama) ────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: prospect-ollama
     ports:
-      - "8000:8000"
+      - "11434:11434"
     volumes:
-      - ./api:/app
-      - /app/.venv
+      - ollama_data:/root/.ollama
+    # Pull the model on first start; subsequent starts skip the pull (already cached)
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list 2>/dev/null; do sleep 1; done; ollama pull ${OLLAMA_MODEL:-llama3.2}; wait"]
+    restart: unless-stopped
+
+  # ── Search (SearXNG) ────────────────────────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    container_name: prospect-searxng
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@database:5432/prospect
-    depends_on:
-      database:
-        condition: service_healthy
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is required — copy .env.example to .env}
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    restart: unless-stopped
 
 volumes:
   pgdata:
+  ollama_data:
